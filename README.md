@@ -1,25 +1,82 @@
-# Top-k-queries
+# Top-k Queries Algorithm for Aggregating Restaurant Ratings
 
-The goal of the work is to develop an algorithm for top-k queries, which aggregate individual scores of objects from three sources. The objects can be restaurants, with each source being a restaurant review website (e.g., Google, TripAdvisor, Yelp), and the individual score of an object in a source is the average of the ratings the restaurant received on that specific website.
+## Overview
 
-The two initial sources, seq1 and seq2, allow only sequential accesses. In seq1 and seq2, the objects are sorted in descending order of their individual scores. The third source, rnd, allows only random accesses. In rnd, the objects are sorted based on their ID. The data from the sources are stored in the files seq1.txt, seq2.txt, and rnd.txt, respectively. Note that the minimum possible individual score of an object in a source is 0.0, and the maximum possible score is 5.0. In each line of a file, the first number represents the object's ID, and the second number represents the individual score in that specific source. The goal of the queries we want to evaluate is to find the top-rated restaurants based on the sum of their ratings in the three sources.
+This project implements an algorithm to calculate the **top-k queries** for aggregating individual scores of objects (e.g., restaurants) from three different sources. The goal is to find the **top-k objects** based on their combined scores across these sources. The objects in this case are restaurants, and the three sources represent reviews from different platforms (e.g., Google, TripAdvisor, and Yelp).
 
-The task is to write a program that takes a positive integer k as a command-line argument and calculates and prints the top-k objects from the three sources using the sum function. For example, the top-1 object is 50905 with a total score of 14.84.
+Each source provides individual scores, which are averaged ratings that a restaurant received on that specific website. The objective is to aggregate the scores from the three sources and identify the top-k restaurants based on the sum of their ratings.
 
-The program should first read the rnd.txt file in its entirety and store the scores of the objects in a main memory data structure (array) R, where position x of the array contains the individual score of the object with ID=x. For example, R[0] = 2.07, R[1] = 2.33, etc. Then, the program should read lines from seq1.txt and seq2.txt alternately (round-robin). Note: You should not read the seq1.txt and seq2.txt files entirely into main memory structures like arrays or lists. For each object with ID=x that we read sequentially from seq1.txt or seq2.txt:
+### Data Sources
 
-•	If we haven't seen object x before, we initialize the lower bound of its total score to be the score we just read sequentially plus the score R[x] (assuming a random access to the R array to retrieve R[x]).
+- **seq1.txt**: Contains restaurant scores, sorted in descending order, and allows only **sequential access**.
+- **seq2.txt**: Contains restaurant scores, sorted in descending order, and allows only **sequential access**.
+- **rnd.txt**: Contains restaurant scores sorted by restaurant ID and allows **random access**.
 
-•	If we have seen object x before, it means we already have a lower bound for x. In this case, we add the individual score we just read to the lower bound to obtain the complete score of x (because now we have seen x in all three sources).
+In each file, the format is as follows:
+- **First column**: Restaurant (object) ID.
+- **Second column**: Restaurant score on the respective platform.
 
+The scores in each source range from **0.0 to 5.0**.
 
-To illustrate the process described, let's consider an example:
+### Problem Definition
 
-Suppose we read object 33136 from seq1.txt, which has a score of 5.00 in seq1. We access R[33136] and retrieve a score of 4.40, which we add to the lower bound, resulting in a lower bound score of 9.40 for object 33136. Later, when we sequentially access 33136 from seq2.txt, we obtain a score of 4.28 in seq2, which is added to 9.40, yielding a total score of 13.68 for object 33136.
+Given the three sources and a positive integer **k** (the number of top-rated restaurants to be retrieved), the task is to calculate and return the **top-k restaurants** based on the **sum** of their ratings across all three sources.
 
-Once we have exactly seen k objects, initialize a min-heap Wk to store the top-k objects so far based on their lower bounds or exact scores. The top element of Wk should have the smallest lower bound score among the top-k objects seen so far.
+### Approach
 
-Afterward, continue alternating between accessing seq1.txt and seq2.txt. After each access and update of a lower bound or total score, update the Threshold T as follows: T = last score seen in seq1.txt + last score seen in seq2.txt + 5.0. T represents the best possible score of any object we haven't seen so far. As long as the score of the top object in Wk is smaller than T, we cannot terminate and need to perform additional sequential accesses in seq1.txt and seq2.txt.
+1. **Read `rnd.txt` Entirely:**
+   - First, read the entire contents of `rnd.txt` and store the scores in an array `R`, where the position `x` of the array corresponds to the score of the object with ID = `x`.
+   - For example, `R[0] = 2.07`, `R[1] = 2.33`, and so on.
 
-When T becomes smaller than or equal to the top element of Wk, it is possible to terminate. In this case, you should check if there is any object x that we have already seen but is not in Wk, and its upper bound is greater than that of the top object in Wk. If such an object exists, continue with sequential accesses. Otherwise, terminate and print Wk as the final result. The upper bound of an object x can be calculated by adding the last score we sequentially read in the source where we haven't seen x yet to its lower bound (which we already know).
+2. **Process `seq1.txt` and `seq2.txt` in Round-Robin:**
+   - Alternate between reading lines from `seq1.txt` and `seq2.txt` in a **round-robin** manner. Each line contains the object ID and the score for that object in the respective source.
+   - **Sequential Access:** Only process one line at a time from `seq1.txt` and `seq2.txt`. You are not allowed to load these files entirely into memory.
 
+3. **Score Calculation:**
+   - For each object with ID = `x` read from either `seq1.txt` or `seq2.txt`:
+     - If this object is seen for the **first time**, initialize its **lower bound score** by adding the score from the current source to its score in `rnd.txt` (accessed via `R[x]`).
+     - If the object has been seen previously (from another source), update its **total score** by adding the score from the current source to the **existing lower bound** (since we now have scores from all three sources).
+
+4. **Top-k Tracking with Min-Heap:**
+   - Once you have seen exactly **k objects**, initialize a **min-heap (`Wk`)** to store the **top-k objects** based on their lower or total scores. The heap will contain the current top-k objects, and the root of the heap will have the **smallest score** among the top-k objects seen so far.
+   - Continue alternating between `seq1.txt` and `seq2.txt`, updating scores for each new object or updating an object's total score if it's seen in another source.
+
+5. **Threshold Calculation and Early Termination:**
+   - After each sequential access (one line from `seq1.txt` or `seq2.txt`), update the **Threshold `T`** as:
+     ```
+     T = last score seen in seq1.txt + last score seen in seq2.txt + 5.0
+     ```
+   - The **threshold `T`** represents the **best possible score** that any unseen object could achieve based on the maximum possible score (5.0) from the third source.
+   - **Termination condition:** As long as the score of the top object in the heap `Wk` is **smaller than `T`**, continue processing more sequential accesses from `seq1.txt` and `seq2.txt`. Once the score of the top object in `Wk` becomes **greater than or equal to `T`**, we can potentially terminate.
+
+6. **Final Checks Before Termination:**
+   - Before terminating, ensure there are no objects that we have already seen, but which are not in `Wk`, and their **upper bound score** (i.e., the score they could still achieve based on the remaining source) is greater than the top object in `Wk`.
+   - If such objects exist, continue sequential accesses to update their scores; otherwise, terminate and return the top-k objects stored in `Wk`.
+
+### Example Walkthrough
+
+1. Suppose we read object `33136` from `seq1.txt`, which has a score of **5.00**. We access `R[33136]` from `rnd.txt` and retrieve a score of **4.40**. The **lower bound score** for object `33136` becomes:
+   ```
+   5.00 (from seq1.txt) + 4.40 (from rnd.txt) = 9.40
+   ```
+
+2. Later, when we read object `33136` from `seq2.txt`, the score is **4.28**. We now have the complete score for object `33136`:
+   ```
+   9.40 (current lower bound) + 4.28 (from seq2.txt) = 13.68 (total score)
+   ```
+
+3. After seeing exactly **k objects**, we initialize the heap `Wk` with these objects based on their lower or total scores.
+
+4. The threshold `T` is updated after each access, and we continue processing until the termination condition is met.
+
+### Program Flow
+
+1. **Read and store `rnd.txt`** in array `R`.
+2. **Process `seq1.txt` and `seq2.txt`** in a round-robin fashion, updating object scores.
+3. **Maintain a min-heap** to store the top-k objects based on their scores.
+4. **Update the threshold** and check for termination conditions.
+5. **Terminate and print the top-k objects** once the threshold allows for termination.
+
+### Conclusion
+
+This algorithm efficiently finds the top-k objects from three different sources with limited access patterns. By leveraging sequential and random accesses and maintaining a dynamic heap for top-k results, it ensures that the program minimizes unnecessary data reads and terminates as early as possible based on the computed threshold.
